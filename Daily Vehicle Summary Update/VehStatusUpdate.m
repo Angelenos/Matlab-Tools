@@ -14,6 +14,15 @@ end
 
 saveLoc = 'C:\work\OBD reliability\Issue Tracking\Vehicle Status Summary';
 
+%% Open log file
+flog = fopen(strcat(pwd, '\Log\',datestr(date,'mmddyyyy'),'.log'),'a');
+if flog == -1
+    error('Can''t open log file');
+else
+    msg = '-------------------------------------------------------';
+    fprintf(flog,'%s\n',msg);
+end
+
 %% Check if needs update
 files = dir(strcat(saveLoc,'\*.csv'));
 filenames = {files.name};
@@ -28,14 +37,23 @@ end
 button = questdlg('Do you want to power off the computer after vehicle summary is updated?',...
     'Power-off Options');
 if strcmp(button, 'Cancel')
-    disp('Program terminated.');
+    msg = 'Program terminated';
+    disp(msg);
+    fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
+    fclose(flog);
     return;
 elseif strcmp(button, 'Yes')
+    msg = ['Automatic Shutdown: ', button];
+    disp(msg);
+    fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
     button2 = questdlg('Do you want to power off the computer when error presented?',...
         'Power-off Options','Yes','No','Yes');
     if isempty(button2)
         button2 = 'No';
     end
+    msg = ['Shutdown ignoring error presented: ', button];
+    disp(msg);
+    fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
 end
 uiwait(msgbox('Make sure the Chrome is opened and ControlTec website is loaded',...
     'One more thing...','warn'));
@@ -59,9 +77,14 @@ while 1
     end
 end
 timestamp = toc;
-disp(['Page loading time: ', num2str(timestamp), ' seconds']);
+msg = ['Page loading time: ', num2str(timestamp), ' seconds'];
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
 download_mouse(1)
 mouse.delay(1000)
+msg = 'Vehicle list has been downloaded';
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
 
 %% Vehicle Property Download
 mouse.mouseMove(2275 - offset, 360);
@@ -80,9 +103,14 @@ while 1
     end
 end
 timestamp = toc;
-disp(['Page loading time: ', num2str(timestamp), ' seconds']);
+msg = ['Page loading time: ', num2str(timestamp), ' seconds'];
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
 download_mouse(2)
 mouse.delay(1000)
+msg = 'Vehicle property summary has been downloaded';
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
 
 %% Vehicle Software Download
 mouse.mouseMove(2355 - offset, 360);
@@ -101,19 +129,34 @@ while 1
     end
 end
 timestamp = toc;
-disp(['Page loading time: ', num2str(timestamp), ' seconds']);
+msg = ['Page loading time: ', num2str(timestamp), ' seconds'];
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
 download_mouse(3)
 mouse.delay(1000)
+msg = 'Vehicle software summary has been downloaded';
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
 
 %% Downloaded File Name Check
-n_file = name_check();
-disp(['Number of files with corrupted name: ', num2str(n_file)]);
+[n_file, file_name_err] = name_check();
+msg = ['Number of files with corrupted name: ', num2str(n_file)];
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
+for i = 1:n_file
+    msg = ['   - File name being corrected: ', file_name_err{i}];
+    disp(msg);
+    fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
+end
 
 %% Update Summary Sheet
 ExcelApp = actxserver('Excel.Application');
 ExcelApp.Visible = 1;
 VehSummarySheet = ExcelApp.Workbooks.Open(strcat(saveLoc,...
     '\Vehicle Status Summary.xlsm'));
+msg = ['Running macro to update vehicle status summary'];
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
 try
     ExcelApp.Run('Sheet1.Veh_Status_Auto_Fill');
 catch MacError
@@ -124,11 +167,14 @@ catch MacError
         copyfile (strcat(saveLoc,'\old\Vehicle Status Summary_',...
             datestr(now,'mmdd'),'.xlsm'), strcat(saveLoc,...
             '\Vehicle Status Summary.xlsm'),'f');
+        msg = ['Error in Macro Running: ',MacError.message];
+        fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
         msgbox({'Error in Macro Running',MacError.message},...
         'Error','error');
         if(strcmp(button2, 'Yes'))
             system('shutdown -s -t 60'); % Power off
         end
+        fclose(flog);
         return;
     end
 end
@@ -139,8 +185,13 @@ ExcelApp.delete;
 
 %% Power-off if Excel is shut down correctly
 pause(5);
-
-[~,task] = system('tasklist/fi "imagename eq Excel.exe"');
-if length(task) < 100 && strcmp(button,'Yes')
+msg = ['Vehicle status summary has been updated'];
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
+if strcmp(button,'Yes')
+    msg = ['Computer will be automatically shutdown in 60 seconds'];
+    disp(msg);
+    fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
     system('shutdown -s -t 60'); % Power off
 end
+fclose(flog);

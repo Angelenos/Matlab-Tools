@@ -1,11 +1,13 @@
-function  n = name_check()
+function  [n, file_name_err] = name_check()
     saveLoc = 'C:\work\OBD reliability\Issue Tracking\Vehicle Status Summary\';
     file_all = dir(saveLoc);
     n = 0;
+    file_name_err = cell(1,length(file_all));
     
     for i = 1 : length(file_all)
         file_name = file_all(i).name;
         if(length(strfind(file_name,'csv')) > 1)
+            file_name_err{n+1} = file_name;
             file_date = regexp(file_name,'\d{4}');
             file_date = file_name(file_date(1) : file_date(1)+3);
             if(~isempty(strfind(file_name,'Software Detail')))
@@ -21,7 +23,8 @@ function  n = name_check()
                     saveLoc, 'CONTROLTEC Vehicle Properties_', ...
                     file_date,'.csv'));
             end
-             n = n + 1;
+            n = n + 1;
         end
     end
+    file_name_err = file_name_err(1:n);
 end
