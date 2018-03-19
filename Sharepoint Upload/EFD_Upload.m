@@ -99,11 +99,13 @@ for i = 1:length(pn_list_raw(:,3))
     pn_list(i) = regexp(pn_list_raw(i,3),'(?<=\[)\w+(?=\])','match');
     pn_list{i} = pn_list{i}{1};
 end
-crit = strcat({'(?<='},pn_list(:),{'[\_| ])[\S\s]+'});
+crit = strcat({'(?<='},pn_list(:),{'[a-zA-Z]*[\_| ])[\S\s]+'});
 for i = 1:length(pn_list_raw(:,3))
     pn_list(i,2) = regexp(pn_list_raw(i,3),crit(i),'match');
     if(~isempty(pn_list{i,2}))
         pn_list{i,2} = pn_list{i,2}{1};
+    else
+        pn_list(i,2) = pn_list_raw(i,3);
     end
 end
 if(has_spec_instr)

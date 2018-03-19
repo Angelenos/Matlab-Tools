@@ -52,12 +52,13 @@ function property_edit(mouse, field_arr, property, orig, res2)
                     mouse.keyRelease(KeyEvent.VK_DOWN);
                     mouse.delay(200);
                 end
-                mouse.keyPress(KeyEvent.VK_TAB);
-                mouse.keyRelease(KeyEvent.VK_TAB);
             otherwise
                 mouse.delay(200);
         end
     end
+    mouse.keyPress(KeyEvent.VK_TAB);
+    mouse.keyRelease(KeyEvent.VK_TAB);
+    mouse.delay(200);
     mouse.keyPress(KeyEvent.VK_TAB);
     mouse.keyRelease(KeyEvent.VK_TAB);
     mouse.delay(200);
