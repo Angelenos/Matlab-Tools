@@ -3,9 +3,15 @@ clc;
 
 import java.awt.Robot;
 import java.awt.event.*;
+addpath('Func');
 mouse = Robot;
 keySet = {'Mule', 'VPA', 'VPB', 'VPC', 'VPD', 'PSA', 'PSB', 'V1', 'V2'};
 vehLev = containers.Map(keySet, 0:8);
+keySet = {'Module','CDA','Rel_date','Veh_level','MY','Restriction','Spec_Instr'};
+property = containers.Map('KeyType','char','ValueType','any');
+for i = 1:length(keySet)
+    property(keySet{i}) = 0;
+end
 
 %% Open log file
 flog = fopen(strcat(pwd, '\Log\',datestr(date,'mmddyyyy'),'.log'),'a');
@@ -15,6 +21,22 @@ else
     msg = '-------------------------------------------------------';
     fprintf(flog,'%s\n',msg);
 end
+
+%% Determine Screen Resolution
+screenSize = get(0, 'MonitorPositions');
+numScreen = length(screenSize(:,1));
+res1 = screenSize(1,3:4);
+res2 = [screenSize(2,3)-screenSize(2,1)+1, screenSize(2,4)];
+msg = ['Number of screen: ', num2str(numScreen)];
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
+msg = ['Resolution of Screen 1: ', num2str(res1(1)), 'x' num2str(res1(2))];
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
+msg = ['Resolution of Screen 2: ', num2str(res2(1)), 'x' num2str(res2(2))];
+disp(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
+orig = screenSize(2,1:2);
 
 %% User specified options
 button = questdlg('Do you want to power off the computer after vehicle summary is updated?',...
@@ -31,42 +53,30 @@ else
     fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
 end
 
-%% Get number and resolution of screen
+%% Get properties of cal release
 msg = 'What module to upload: ';
-Module = input(msg, 's');
-fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg, Module]);
+property('Module') = input(msg, 's');
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg, property('Module')]);
 msg = 'CDA Version: ';
-CDA_ver = input(msg, 's');
-fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg, CDA_ver]);
+property('CDA') = input(msg, 's');
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg, property('CDA')]);
 msg = 'Release date (mm/dd/yy Leave blank for today): ';
-Rel_Date = input(msg, 's');
-if isempty(Rel_Date)
-    Rel_Date = datestr(date,'mm/dd/yyyy');
+property('Rel_Date') = input(msg, 's');
+if isempty(property('Rel_Date'))
+    property('Rel_Date') = datestr(date,'mm/dd/yyyy');
 end
-fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg, Rel_Date]);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg, property('Rel_Date')]);
 Veh_level = 0;
 msg = 'Release level: ';
 while ~vehLev.isKey(Veh_level)
     Veh_level = input(msg, 's');
 end
 fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg, Veh_level]);
-Veh_level = vehLev(Veh_level);
+property('Veh_level') = vehLev(Veh_level);
 msg = 'Model Year: ';
-MY = input(msg);
-fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg, num2str(MY)]);
-screenSize = get(0, 'MonitorPositions');
-numScreen = length(screenSize(:,1));
-res1 = screenSize(1,3:4);
-res2 = [screenSize(2,3)-screenSize(2,1)+1, screenSize(2,4)];
-msg = ['Number of screen: ', num2str(numScreen)];
-disp(msg);
-fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
-msg = ['Resolution of Screen 1: ', num2str(res1(1)), 'x' num2str(res1(2))];
-disp(msg);
-fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
-msg = ['Resolution of Screen 2: ', num2str(res2(1)), 'x' num2str(res2(2))];
-disp(msg);
-fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
+property('MY') = input(msg);
+fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg, ...
+    num2str(property('MY'))]);
 
 %% Load Part Number List
 filename = dir('PN List\*.xlsx');
@@ -80,6 +90,11 @@ filename = strcat(pwd,'\PN List\',filename(1).name);
 [~,~,pn_list_raw] = xlsread(filename);
 pn_list_raw = pn_list_raw(2:end,:);
 pn_list = pn_list_raw(:,3);
+if(size(pn_list_raw,2)>13)
+    has_spec_instr = 1;
+else
+    has_spec_instr = 0;
+end
 for i = 1:length(pn_list_raw(:,3))
     pn_list(i) = regexp(pn_list_raw(i,3),'(?<=\[)\w+(?=\])','match');
     pn_list{i} = pn_list{i}{1};
@@ -87,7 +102,12 @@ end
 crit = strcat({'(?<='},pn_list(:),{'[\_| ])[\S\s]+'});
 for i = 1:length(pn_list_raw(:,3))
     pn_list(i,2) = regexp(pn_list_raw(i,3),crit(i),'match');
-    pn_list{i,2} = pn_list{i,2}{1};
+    if(~isempty(pn_list{i,2}))
+        pn_list{i,2} = pn_list{i,2}{1};
+    end
+end
+if(has_spec_instr)
+    pn_list(:,3) = pn_list_raw(:,14);
 end
 num_efd_list = length(pn_list(:,1));
 msg = ['Part Number List Loaded. Found ', num2str(num_efd_list),...
@@ -123,7 +143,8 @@ end
 %% Get prepared for upload
 uiwait(msgbox('Make sure the Chrome is opened and Sharepoint website is loaded',...
     'Before uploading','warn'));
-orig = screenSize(2,1:2);
+
+get_page_layout = 0;
 pause(2);
 
 %% Uploading Files
@@ -134,6 +155,15 @@ for i = 1:num_efd_loc
         pn_list{i,1}];
     fprintf(flog,'%s\n',[datestr(clock,'[HH:MM:SS:FFF] '), msg]);
     disp(msg);
+    if(has_spec_instr)
+        property('Spec_Instr') = pn_list{i,3};
+        if(isempty(property('Spec_Instr')))
+            property('Spec_Instr') = 0;
+        end
+    else
+        property('Spec_Instr') = 0;
+    end
+    property('Restriction') = pn_list{i,2};
     mouse_move(mouse, orig, res2, [12, 4.5]);
     mouse_click(mouse);
     mouse.delay(500)
@@ -160,79 +190,22 @@ for i = 1:num_efd_loc
     mouse_move(mouse, orig, res2, [2, 1.4]);
     mouse_click(mouse);
     wait_next(mouse, orig, res2, [2.7, 1.1], 750);
+    if ~get_page_layout
+        mouse_move(mouse, orig, res2, [3, 1.5]);
+        mouse.delay(500);
+        mouse_frame(mouse, orig, res2);
+        mouse.delay(1800);
+        mouse_all(mouse);
+        mouse.delay(300);
+        mouse_copy(mouse);
+        mouse.delay(300);
+        mouse_close(mouse);
+        page_src = clipboard('paste');
+        field_arr = regexp(page_src,'(?<=FieldName=")[\w+\s]+\w+','match');
+        get_page_layout = 1;
+    end
     % Edit properties
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    mouse.delay(200);
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    clipboard('copy', Module);
-    mouse_paste(mouse);
-    mouse.delay(200);
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    clipboard('copy', CDA_ver);
-    mouse_paste(mouse);
-    mouse.delay(200);
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    clipboard('copy', Rel_Date);
-    mouse_paste(mouse);
-    mouse.delay(200);
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    mouse.delay(200);
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    for j = 1:Veh_level
-        mouse.keyPress(KeyEvent.VK_DOWN);
-        mouse.keyRelease(KeyEvent.VK_DOWN);
-        mouse.delay(200);
-    end
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    mouse.delay(200);
-    for j = 1: MY-2011
-        mouse.keyPress(KeyEvent.VK_TAB);
-        mouse.keyRelease(KeyEvent.VK_TAB);
-        mouse.delay(200);
-    end
-    mouse.keyPress(KeyEvent.VK_SPACE);
-    mouse.keyRelease(KeyEvent.VK_SPACE);
-    mouse.delay(200);
-    for j = 1: 2030-MY
-        mouse.keyPress(KeyEvent.VK_TAB);
-        mouse.keyRelease(KeyEvent.VK_TAB);
-        mouse.delay(200);
-    end
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    mouse.delay(200);
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    mouse.delay(200);
-    clipboard('copy',pn_list{i,2});
-    mouse_all(mouse)
-    mouse.delay(300);
-    mouse_paste(mouse);
-    mouse.delay(200);
-    mouse.keyPress(KeyEvent.VK_TAB);
-    mouse.keyRelease(KeyEvent.VK_TAB);
-    mouse.delay(200);
-    clipboard('copy','NA');
-    mouse_all(mouse)
-    mouse.delay(300);
-    mouse_paste(mouse);
-    mouse.delay(200);
-    for j = 1:4
-        mouse.keyPress(KeyEvent.VK_TAB);
-        mouse.keyRelease(KeyEvent.VK_TAB);
-        mouse.delay(200);
-    end
-    mouse.keyPress(KeyEvent.VK_ENTER);
-    mouse.keyRelease(KeyEvent.VK_ENTER);
-    wait_next(mouse, orig, res2, [1.1, 1.1], 750);
-    mouse.delay(1000);
+    property_edit(mouse, field_arr, property, orig, res2);
 end
 
 timestamp = toc;
